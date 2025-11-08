@@ -10,15 +10,26 @@ from typing import Optional
 from .config import Config
 from .state import CrawlerState
 from ..extractors import extract_metadata, extract_text, extract_links, extract_resources
-from ..utils import compute_content_hash, can_fetch, needs_javascript, is_spa_url, fetch_with_js
+from ..utils import compute_content_hash, can_fetch, needs_javascript, is_spa_url, fetch_with_js, get_fetcher
 
 
 class Crawler:
-    """Main crawler class"""
+    """Main crawler class with optimized Playwright pooling"""
     
     def __init__(self, config: Config, state: CrawlerState):
         self.config = config
         self.state = state
+        self._playwright_fetcher = None
+    
+    async def _get_playwright_fetcher(self):
+        """Get or initialize Playwright fetcher with config settings"""
+        if self._playwright_fetcher is None:
+            self._playwright_fetcher = await get_fetcher(
+                pool_size=self.config.playwright_pool_size,
+                cache_enabled=self.config.playwright_cache_enabled,
+                cache_ttl=self.config.playwright_cache_ttl
+            )
+        return self._playwright_fetcher
     
     async def fetch(self, session, url: str) -> Optional[tuple]:
         """Fetch URL with retry logic, metrics, and JS fallback"""
@@ -45,10 +56,14 @@ class Crawler:
                         if js_needed or is_spa_url(url):
                             logging.info(f"JS rendering needed for {url}: {reason}")
                             
-                            # Fallback to Playwright
+                            # Fallback to Playwright with optimized pooling
                             try:
                                 start_js = time.time()
-                                js_html = await fetch_with_js(url, timeout=self.config.timeout * 1000)
+                                fetcher = await self._get_playwright_fetcher()
+                                js_html = await fetcher.fetch(
+                                    url, 
+                                    timeout=self.config.playwright_timeout
+                                )
                                 elapsed_js = time.time() - start_js
                                 
                                 if js_html:

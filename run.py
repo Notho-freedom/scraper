@@ -13,7 +13,7 @@ from tqdm import tqdm
 
 from scraper.core import Config, CrawlerState, Crawler
 from scraper.exporters import export_json, export_csv, export_sqlite
-from scraper.utils import setup_logging, cleanup_fetcher
+from scraper.utils import setup_logging, cleanup_fetcher, get_fetcher
 
 # Initialize colorama
 init(autoreset=True)
@@ -122,6 +122,20 @@ async def main():
             except KeyboardInterrupt:
                 print(f"\n{Fore.YELLOW}⚠️  Scan interrompu par l'utilisateur{Style.RESET_ALL}")
             finally:
+                # Display Playwright metrics if used
+                try:
+                    fetcher = await get_fetcher()
+                    metrics = fetcher.get_metrics()
+                    if metrics['total_fetches'] > 0:
+                        print(f"\n{Fore.CYAN}🎭 Playwright Metrics:{Style.RESET_ALL}")
+                        print(f"  Total fetches    : {Fore.GREEN}{metrics['total_fetches']}{Style.RESET_ALL}")
+                        print(f"  Cache hits       : {Fore.GREEN}{metrics['cache_hits']}{Style.RESET_ALL} ({metrics['cache_hit_rate']})")
+                        print(f"  Avg fetch time   : {Fore.GREEN}{metrics['avg_time']:.2f}s{Style.RESET_ALL}")
+                        print(f"  Pool size        : {Fore.GREEN}{metrics['pool_size']}{Style.RESET_ALL}")
+                        print(f"  Errors           : {Fore.RED}{metrics['errors']}{Style.RESET_ALL}")
+                except Exception:
+                    pass  # Playwright not used
+                
                 # Cleanup Playwright resources
                 await cleanup_fetcher()
     

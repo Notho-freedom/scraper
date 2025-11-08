@@ -21,3 +21,10 @@ class Config:
     save_format: str = "json"  # json, csv, sqlite, all
     output_dir: str = "output"
     log_level: str = "INFO"
+    
+    # Playwright optimization settings
+    playwright_pool_size: int = 5  # Number of browser contexts in pool
+    playwright_cache_enabled: bool = True  # Enable HTML caching
+    playwright_cache_ttl: int = 3600  # Cache TTL in seconds (1 hour)
+    playwright_timeout: int = 15000  # Timeout in milliseconds
+    playwright_batch_size: int = 10  # Process URLs in batches for parallel fetching

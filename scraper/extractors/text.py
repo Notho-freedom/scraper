@@ -3,10 +3,11 @@
 from selectolax.parser import HTMLParser
 import re
 from collections import Counter
-from typing import Dict
+from typing import Dict, Optional
 
 
-def extract_text(html: str, enable_nlp: bool = False, nlp_config: Dict = None) -> Dict:
+def extract_text(html: str, enable_nlp: bool = False, nlp_config: Dict = None, 
+                enable_correction: bool = False) -> Dict:
     """
     Extract and analyze text content from HTML.
     
@@ -14,6 +15,7 @@ def extract_text(html: str, enable_nlp: bool = False, nlp_config: Dict = None) -
         html: HTML content
         enable_nlp: Enable advanced NLP processing
         nlp_config: NLP configuration dict (language, use_spacy)
+        enable_correction: Enable grammar/spelling correction
     
     Returns:
         Dictionary with text analysis
@@ -131,5 +133,65 @@ def extract_text(html: str, enable_nlp: bool = False, nlp_config: Dict = None) -
             result["nlp_error"] = str(e)
     else:
         result["nlp_enabled"] = False
+    
+    # Add correction if enabled
+    if enable_correction:
+        try:
+            from ..utils.text_corrector import TextCorrector
+            from ..utils.grammar_checker import GrammarChecker
+            
+            nlp_config = nlp_config or {}
+            language = nlp_config.get('language', 'french')
+            
+            # Check and correct paragraphs
+            corrector = TextCorrector(language=language)
+            checker = GrammarChecker(language=language)
+            
+            paragraphs_to_correct = result.get('paragraphs', []) or [raw_text]
+            corrected_paragraphs = []
+            all_errors = []
+            total_corrections = 0
+            corrections_by_type = {}
+            
+            for para in paragraphs_to_correct:
+                # Check for errors
+                check_result = checker.check_text(para)
+                
+                # Correct text
+                corr_result = corrector.correct_text(para)
+                
+                corrected_paragraphs.append({
+                    'original_text': para,
+                    'corrected_text': corr_result.corrected_text,
+                    'corrections': [c.to_dict() for c in corr_result.corrections],
+                    'quality_score': corr_result.quality_score
+                })
+                
+                # Aggregate statistics
+                all_errors.extend([e.to_dict() for e in check_result.errors])
+                total_corrections += corr_result.correction_count
+                
+                for etype, count in corr_result.corrections_by_type.items():
+                    corrections_by_type[etype] = corrections_by_type.get(etype, 0) + count
+            
+            # Calculate average quality
+            avg_quality = sum(p['quality_score'] for p in corrected_paragraphs) / len(corrected_paragraphs) if corrected_paragraphs else 100.0
+            
+            result["correction_enabled"] = True
+            result["corrections"] = {
+                "corrected_paragraphs": corrected_paragraphs,
+                "all_errors": all_errors[:50],  # Limit errors
+                "correction_count": total_corrections,
+                "corrections_by_type": corrections_by_type,
+                "average_quality": avg_quality
+            }
+            
+        except Exception as e:
+            import logging
+            logging.warning(f"Correction processing failed: {e}")
+            result["correction_enabled"] = False
+            result["correction_error"] = str(e)
+    else:
+        result["correction_enabled"] = False
     
     return result

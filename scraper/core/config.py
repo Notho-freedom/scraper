@@ -33,3 +33,9 @@ class Config:
     enable_nlp: bool = False  # Enable advanced NLP processing
     nlp_language: str = "french"  # Language for NLP (french, english)
     nlp_use_spacy: bool = True  # Use spaCy if available (more accurate)
+    
+    # Correction settings
+    enable_correction: bool = False  # Enable grammar/spelling correction
+    correction_aggressive: bool = False  # Use aggressive correction mode
+    generate_corrected_html: bool = False  # Generate corrected HTML pages
+    generate_pdf_report: bool = False  # Generate PDF report with corrections

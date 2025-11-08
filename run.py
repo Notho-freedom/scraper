@@ -80,6 +80,12 @@ async def main():
     parser.add_argument("--nlp-language", default="french", choices=["french", "english"], help="NLP language")
     parser.add_argument("--nlp-spacy", action="store_true", default=True, help="Use spaCy if available")
     
+    # Correction options
+    parser.add_argument("--correct", action="store_true", help="Enable grammar/spelling correction")
+    parser.add_argument("--correct-aggressive", action="store_true", help="Use aggressive correction mode")
+    parser.add_argument("--generate-html", action="store_true", help="Generate corrected HTML pages")
+    parser.add_argument("--generate-pdf", action="store_true", help="Generate PDF report with corrections")
+    
     args = parser.parse_args()
     
     # Setup
@@ -109,13 +115,21 @@ async def main():
         log_level=args.log_level,
         enable_nlp=args.nlp,
         nlp_language=args.nlp_language,
-        nlp_use_spacy=args.nlp_spacy
+        nlp_use_spacy=args.nlp_spacy,
+        enable_correction=args.correct,
+        correction_aggressive=args.correct_aggressive,
+        generate_corrected_html=args.generate_html,
+        generate_pdf_report=args.generate_pdf
     )
     
     print(f"\n{Fore.CYAN}🚀 Démarrage du scan de: {base_url}{Style.RESET_ALL}")
     print(f"{Fore.CYAN}⚙️  Config: {config.max_pages} pages max, profondeur {config.max_depth}, {config.concurrent_tasks} tâches concurrentes{Style.RESET_ALL}")
     if config.enable_nlp:
         print(f"{Fore.GREEN}🧠 NLP activé: {config.nlp_language}, spaCy={'enabled' if config.nlp_use_spacy else 'disabled'}{Style.RESET_ALL}")
+    if config.enable_correction:
+        print(f"{Fore.YELLOW}✏️  Correction activée: mode {'agressif' if config.correction_aggressive else 'standard'}{Style.RESET_ALL}")
+    if config.generate_pdf_report:
+        print(f"{Fore.MAGENTA}📄 Génération PDF activée{Style.RESET_ALL}")
     print()
     
     # Initialize crawler
@@ -171,6 +185,38 @@ async def main():
     if config.save_format == "md" or config.save_format == "all":
         md_file = export_markdown(state, config)
         print(f"  ✓ Markdown: {Fore.GREEN}{md_file}{Style.RESET_ALL}")
+    
+    # Generate corrected HTML and PDF if requested
+    if config.generate_corrected_html or config.generate_pdf_report:
+        print(f"\n{Fore.YELLOW}📝 Génération des pages corrigées...{Style.RESET_ALL}")
+        
+        from scraper.exporters import generate_corrected_html, generate_pdf_report
+        
+        html_pages = []
+        for page in state.results:
+            html_content = generate_corrected_html(page, include_annotations=True)
+            html_pages.append(html_content)
+            
+            # Save individual HTML if requested
+            if config.generate_corrected_html:
+                from urllib.parse import urlparse
+                parsed = urlparse(page['url'])
+                safe_name = parsed.path.strip('/').replace('/', '_') or 'index'
+                html_filename = f"{config.output_dir}/corrected_{safe_name}.html"
+                with open(html_filename, 'w', encoding='utf-8') as f:
+                    f.write(html_content)
+        
+        if config.generate_corrected_html:
+            print(f"  ✓ HTML corrigés: {Fore.GREEN}{len(html_pages)} pages{Style.RESET_ALL}")
+        
+        # Generate PDF report
+        if config.generate_pdf_report and html_pages:
+            try:
+                pdf_path = generate_pdf_report(state.results, html_pages, output_dir=config.output_dir)
+                print(f"  ✓ Rapport PDF: {Fore.GREEN}{pdf_path}{Style.RESET_ALL}")
+            except Exception as e:
+                print(f"  {Fore.RED}✗ Erreur PDF: {e}{Style.RESET_ALL}")
+                logging.error(f"PDF generation failed: {e}")
     
     print(f"\n{Fore.GREEN}✨ Scan terminé avec succès!{Style.RESET_ALL}\n")
 

@@ -138,7 +138,8 @@ class Crawler:
                 nlp_config={
                     'language': self.config.nlp_language,
                     'use_spacy': self.config.nlp_use_spacy
-                }
+                },
+                enable_correction=self.config.enable_correction
             )
             resources = extract_resources(html, url)
             link_data = extract_links(html, url)

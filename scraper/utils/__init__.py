@@ -7,6 +7,8 @@ from .js_detector import needs_javascript, is_spa_url
 from .playwright_fetcher import fetch_with_js, fetch_multiple_with_js, get_fetcher, cleanup_fetcher
 from .text_cleaner import clean_text, clean_sentences, fix_concatenation, remove_duplicates
 from .nlp_processor import NLPProcessor, process_text_with_nlp
+from .grammar_checker import GrammarChecker, check_grammar
+from .text_corrector import TextCorrector, correct_text
 
 __all__ = [
     'compute_content_hash', 
@@ -23,5 +25,9 @@ __all__ = [
     'fix_concatenation',
     'remove_duplicates',
     'NLPProcessor',
-    'process_text_with_nlp'
+    'process_text_with_nlp',
+    'GrammarChecker',
+    'check_grammar',
+    'TextCorrector',
+    'correct_text'
 ]

@@ -6,8 +6,18 @@ from collections import Counter
 from typing import Dict
 
 
-def extract_text(html: str) -> Dict:
-    """Extract and analyze text content from HTML"""
+def extract_text(html: str, enable_nlp: bool = False, nlp_config: Dict = None) -> Dict:
+    """
+    Extract and analyze text content from HTML.
+    
+    Args:
+        html: HTML content
+        enable_nlp: Enable advanced NLP processing
+        nlp_config: NLP configuration dict (language, use_spacy)
+    
+    Returns:
+        Dictionary with text analysis
+    """
     parser = HTMLParser(html)
     
     # Remove script, style, and navigation elements
@@ -78,7 +88,8 @@ def extract_text(html: str) -> Dict:
                        if len(w) > 4 and w.isalpha() and w.lower() not in common_words)
     top_keywords = [word for word, _ in word_freq.most_common(10)]
     
-    return {
+    # Base result
+    result = {
         "sentences": sentences[:100],  # Limit for storage
         "word_count": word_count,
         "unique_words": unique_words,
@@ -87,3 +98,38 @@ def extract_text(html: str) -> Dict:
         "keywords": top_keywords,
         "avg_sentence_length": word_count / len(sentences) if sentences else 0
     }
+    
+    # Add NLP processing if enabled
+    if enable_nlp:
+        try:
+            from ..utils.nlp_processor import process_text_with_nlp
+            
+            nlp_config = nlp_config or {}
+            language = nlp_config.get('language', 'french')
+            use_spacy = nlp_config.get('use_spacy', True)
+            
+            nlp_result = process_text_with_nlp(raw_text, language=language, use_spacy=use_spacy)
+            
+            # Merge NLP results (NLP versions replace basic ones)
+            result.update({
+                "sentences": nlp_result['sentences'][:100],
+                "sentence_count": nlp_result['sentence_count'],
+                "paragraphs": nlp_result['paragraphs'][:50],
+                "paragraph_count": nlp_result['paragraph_count'],
+                "keywords": nlp_result['keywords'],
+                "named_entities": nlp_result['named_entities'][:20],
+                "vocabulary_richness": nlp_result['vocabulary_richness'],
+                "readability_score": nlp_result['readability_score'],
+                "nlp_enabled": True,
+                "nlp_language": nlp_result['language']
+            })
+            
+        except Exception as e:
+            import logging
+            logging.warning(f"NLP processing failed: {e}")
+            result["nlp_enabled"] = False
+            result["nlp_error"] = str(e)
+    else:
+        result["nlp_enabled"] = False
+    
+    return result

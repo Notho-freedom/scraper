@@ -28,3 +28,8 @@ class Config:
     playwright_cache_ttl: int = 3600  # Cache TTL in seconds (1 hour)
     playwright_timeout: int = 15000  # Timeout in milliseconds
     playwright_batch_size: int = 10  # Process URLs in batches for parallel fetching
+    
+    # NLP processing settings
+    enable_nlp: bool = False  # Enable advanced NLP processing
+    nlp_language: str = "french"  # Language for NLP (french, english)
+    nlp_use_spacy: bool = True  # Use spaCy if available (more accurate)

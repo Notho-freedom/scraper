@@ -132,7 +132,14 @@ class Crawler:
             
             # Extract all data
             metadata = extract_metadata(html)
-            text_data = extract_text(html)
+            text_data = extract_text(
+                html, 
+                enable_nlp=self.config.enable_nlp,
+                nlp_config={
+                    'language': self.config.nlp_language,
+                    'use_spacy': self.config.nlp_use_spacy
+                }
+            )
             resources = extract_resources(html, url)
             link_data = extract_links(html, url)
             

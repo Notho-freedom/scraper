@@ -75,6 +75,11 @@ async def main():
     parser.add_argument("--no-robots", action="store_true", help="Ignore robots.txt")
     parser.add_argument("--log-level", default="INFO", choices=["DEBUG", "INFO", "WARNING", "ERROR"])
     
+    # NLP options
+    parser.add_argument("--nlp", action="store_true", help="Enable advanced NLP processing (NLTK/spaCy)")
+    parser.add_argument("--nlp-language", default="french", choices=["french", "english"], help="NLP language")
+    parser.add_argument("--nlp-spacy", action="store_true", default=True, help="Use spaCy if available")
+    
     args = parser.parse_args()
     
     # Setup
@@ -92,7 +97,7 @@ async def main():
     # Create output directory
     os.makedirs(args.output_dir, exist_ok=True)
     
-    # Configure
+    # Config
     config = Config(
         max_depth=args.max_depth,
         max_pages=args.max_pages,
@@ -101,14 +106,21 @@ async def main():
         respect_robots=not args.no_robots,
         save_format=args.format,
         output_dir=args.output_dir,
-        log_level=args.log_level
+        log_level=args.log_level,
+        enable_nlp=args.nlp,
+        nlp_language=args.nlp_language,
+        nlp_use_spacy=args.nlp_spacy
     )
     
-    state = CrawlerState()
-    crawler = Crawler(config, state)
-    
     print(f"\n{Fore.CYAN}🚀 Démarrage du scan de: {base_url}{Style.RESET_ALL}")
-    print(f"{Fore.CYAN}⚙️  Config: {config.max_pages} pages max, profondeur {config.max_depth}, {config.concurrent_tasks} tâches concurrentes{Style.RESET_ALL}\n")
+    print(f"{Fore.CYAN}⚙️  Config: {config.max_pages} pages max, profondeur {config.max_depth}, {config.concurrent_tasks} tâches concurrentes{Style.RESET_ALL}")
+    if config.enable_nlp:
+        print(f"{Fore.GREEN}🧠 NLP activé: {config.nlp_language}, spaCy={'enabled' if config.nlp_use_spacy else 'disabled'}{Style.RESET_ALL}")
+    print()
+    
+    # Initialize crawler
+    state = CrawlerState()
+    crawler = Crawler(config, state)  # config first, then state
     
     # Start crawling
     sem = asyncio.Semaphore(config.concurrent_tasks)

@@ -11,6 +11,10 @@ tqdm>=4.66.0
 # JavaScript rendering (for dynamic sites)
 playwright>=1.40.0
 
+# NLP processing (optional but recommended)
+nltk>=3.8.1
+spacy>=3.7.0
+
 # Optional dependencies (used in previous versions)
 textblob>=0.17.1
 

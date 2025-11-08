@@ -42,12 +42,14 @@ def extract_metadata(html: str) -> Dict:
     
     # Meta tags
     for tag in parser.css("meta"):
-        name = tag.attributes.get("name", "").lower()
-        prop = tag.attributes.get("property", "").lower()
-        content = tag.attributes.get("content", "").strip()
+        name = tag.attributes.get("name", "").lower() if tag.attributes.get("name") else ""
+        prop = tag.attributes.get("property", "").lower() if tag.attributes.get("property") else ""
+        content = tag.attributes.get("content", "")
         
         if not content:
             continue
+        
+        content = content.strip()
         
         if name == "description":
             meta["description"] = content

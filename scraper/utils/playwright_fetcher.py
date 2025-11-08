@@ -66,14 +66,29 @@ class PlaywrightFetcher:
         try:
             page = await self.context.new_page()
             
+            # Disable animations for cleaner rendering
+            await page.add_style_tag(content="""
+                * {
+                    transition: none !important;
+                    animation: none !important;
+                    animation-duration: 0s !important;
+                }
+            """)
+            
             # Block unnecessary resources for performance
             await page.route("**/*", self._route_handler)
             
             # Navigate and wait
             await page.goto(url, timeout=timeout, wait_until=wait_for)
             
-            # Additional wait for dynamic content (adjust as needed)
+            # Additional wait for dynamic content
             await page.wait_for_timeout(1000)
+            
+            # Wait for main content to be visible (if present)
+            try:
+                await page.wait_for_selector("main, article, section, .content", timeout=5000)
+            except Exception:
+                pass  # Continue if selector not found
             
             # Get rendered HTML
             html = await page.content()

@@ -12,7 +12,7 @@ from colorama import Fore, Style, init
 from tqdm import tqdm
 
 from scraper.core import Config, CrawlerState, Crawler
-from scraper.exporters import export_json, export_csv, export_sqlite
+from scraper.exporters import export_json, export_csv, export_sqlite, export_markdown
 from scraper.utils import setup_logging, cleanup_fetcher, get_fetcher
 
 # Initialize colorama
@@ -70,7 +70,7 @@ async def main():
     parser.add_argument("--max-pages", type=int, default=500, help="Maximum pages to crawl")
     parser.add_argument("--concurrent", type=int, default=50, help="Concurrent requests")
     parser.add_argument("--timeout", type=int, default=15, help="Request timeout in seconds")
-    parser.add_argument("--format", choices=["json", "csv", "sqlite", "all"], default="json", help="Export format")
+    parser.add_argument("--format", choices=["json", "csv", "sqlite", "md", "all"], default="json", help="Export format")
     parser.add_argument("--output-dir", default="output", help="Output directory")
     parser.add_argument("--no-robots", action="store_true", help="Ignore robots.txt")
     parser.add_argument("--log-level", default="INFO", choices=["DEBUG", "INFO", "WARNING", "ERROR"])
@@ -167,6 +167,10 @@ async def main():
     if config.save_format == "sqlite" or config.save_format == "all":
         db_file = export_sqlite(state, config)
         print(f"  ✓ SQLite: {Fore.GREEN}{db_file}{Style.RESET_ALL}")
+    
+    if config.save_format == "md" or config.save_format == "all":
+        md_file = export_markdown(state, config)
+        print(f"  ✓ Markdown: {Fore.GREEN}{md_file}{Style.RESET_ALL}")
     
     print(f"\n{Fore.GREEN}✨ Scan terminé avec succès!{Style.RESET_ALL}\n")
 

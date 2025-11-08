@@ -10,7 +10,7 @@ from typing import Optional
 from .config import Config
 from .state import CrawlerState
 from ..extractors import extract_metadata, extract_text, extract_links, extract_resources
-from ..utils import compute_content_hash, can_fetch
+from ..utils import compute_content_hash, can_fetch, needs_javascript, is_spa_url, fetch_with_js
 
 
 class Crawler:
@@ -21,9 +21,10 @@ class Crawler:
         self.state = state
     
     async def fetch(self, session, url: str) -> Optional[tuple]:
-        """Fetch URL with retry logic and metrics"""
+        """Fetch URL with retry logic, metrics, and JS fallback"""
         import time
         
+        # Try standard HTTP fetch first
         for attempt in range(self.config.retry_attempts):
             try:
                 start_time = time.time()
@@ -37,6 +38,31 @@ class Crawler:
                     
                     if response.status == 200 and "text/html" in content_type:
                         html = await response.text()
+                        
+                        # Check if page needs JavaScript rendering
+                        js_needed, reason = needs_javascript(html, url)
+                        
+                        if js_needed or is_spa_url(url):
+                            logging.info(f"JS rendering needed for {url}: {reason}")
+                            
+                            # Fallback to Playwright
+                            try:
+                                start_js = time.time()
+                                js_html = await fetch_with_js(url, timeout=self.config.timeout * 1000)
+                                elapsed_js = time.time() - start_js
+                                
+                                if js_html:
+                                    logging.info(f"Successfully rendered with Playwright: {url} ({elapsed_js:.2f}s)")
+                                    self.state.add_response_time(elapsed_js)
+                                    return js_html, elapsed_js
+                                else:
+                                    logging.warning(f"Playwright rendering failed for {url}, using static HTML")
+                                    return html, elapsed
+                                    
+                            except Exception as e:
+                                logging.error(f"Playwright error for {url}: {e}, falling back to static HTML")
+                                return html, elapsed
+                        
                         return html, elapsed
                     else:
                         logging.warning(f"Non-200 or non-HTML response for {url}: {response.status}")

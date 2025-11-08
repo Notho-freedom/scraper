@@ -13,7 +13,7 @@ from tqdm import tqdm
 
 from scraper.core import Config, CrawlerState, Crawler
 from scraper.exporters import export_json, export_csv, export_sqlite
-from scraper.utils import setup_logging
+from scraper.utils import setup_logging, cleanup_fetcher
 
 # Initialize colorama
 init(autoreset=True)
@@ -121,6 +121,9 @@ async def main():
                 await crawler.crawl(base_url, session, 0, sem, pbar)
             except KeyboardInterrupt:
                 print(f"\n{Fore.YELLOW}⚠️  Scan interrompu par l'utilisateur{Style.RESET_ALL}")
+            finally:
+                # Cleanup Playwright resources
+                await cleanup_fetcher()
     
     # Generate report
     generate_report(state, config)

@@ -4,6 +4,7 @@ import re
 import logging
 from typing import List, Dict, Optional
 from bs4 import BeautifulSoup, NavigableString
+from urllib.parse import urljoin, urlparse
 
 
 class HTMLReconstructor:
@@ -16,6 +17,65 @@ class HTMLReconstructor:
     def __init__(self):
         """Initialize HTML reconstructor"""
         pass
+    
+    def fix_relative_urls(self, html: str, base_url: str) -> str:
+        """
+        Convert all relative URLs to absolute URLs in HTML.
+        
+        Args:
+            html: HTML content with relative URLs
+            base_url: Base URL of the website (e.g., https://example.com)
+            
+        Returns:
+            HTML with absolute URLs
+        """
+        soup = BeautifulSoup(html, 'html.parser')
+        
+        # Fix href attributes (links, stylesheets)
+        for tag in soup.find_all(href=True):
+            original_url = tag['href']
+            # Skip if already absolute or anchor/javascript
+            if not original_url.startswith(('#', 'javascript:', 'mailto:', 'tel:')):
+                tag['href'] = urljoin(base_url, original_url)
+        
+        # Fix src attributes (images, scripts)
+        for tag in soup.find_all(src=True):
+            original_url = tag['src']
+            if not original_url.startswith(('data:', 'javascript:')):
+                tag['src'] = urljoin(base_url, original_url)
+        
+        # Fix srcset attributes (responsive images)
+        for tag in soup.find_all(srcset=True):
+            srcset_parts = []
+            for part in tag['srcset'].split(','):
+                part = part.strip()
+                if ' ' in part:
+                    url, descriptor = part.rsplit(' ', 1)
+                    url = urljoin(base_url, url.strip())
+                    srcset_parts.append(f"{url} {descriptor}")
+                else:
+                    url = urljoin(base_url, part)
+                    srcset_parts.append(url)
+            tag['srcset'] = ', '.join(srcset_parts)
+        
+        # Helper function to replace URLs in CSS
+        def replace_css_url(match):
+            url = match.group(1).strip('\'"')
+            if not url.startswith(('data:', 'http://', 'https://', '#')):
+                url = urljoin(base_url, url)
+            return f'url("{url}")'
+        
+        # Fix inline style attributes
+        for tag in soup.find_all(style=True):
+            style = tag['style']
+            tag['style'] = re.sub(r'url\(["\']?([^"\'()]+)["\']?\)', replace_css_url, style)
+        
+        # Fix <style> tags
+        for style_tag in soup.find_all('style'):
+            if style_tag.string:
+                style_tag.string = re.sub(r'url\(["\']?([^"\'()]+)["\']?\)', replace_css_url, style_tag.string)
+        
+        return str(soup)
     
     def reconstruct_with_corrections(self, html: str, corrections_data: Dict) -> str:
         """
@@ -229,21 +289,30 @@ class HTMLReconstructor:
         
         return html
     
-    def save_snapshot(self, html: str, url: str, output_dir: str, version: str = "v1") -> str:
+    def save_snapshot(self, html: str, url: str, output_dir: str, version: str = "v1", fix_urls: bool = True) -> str:
         """
         Save HTML snapshot to file.
         
         Args:
             html: HTML content
-            url: Page URL
+            url: Page URL (used for filename and as base URL for fixing)
             output_dir: Output directory
             version: Version identifier (v1, v2_corrected, etc.)
+            fix_urls: Convert relative URLs to absolute (default: True)
             
         Returns:
             Path to saved file
         """
         from urllib.parse import urlparse
         import os
+        
+        # Fix relative URLs if requested
+        if fix_urls:
+            # Extract base URL from full URL
+            parsed = urlparse(url)
+            base_url = f"{parsed.scheme}://{parsed.netloc}"
+            logging.info(f"Converting relative URLs to absolute using base: {base_url}")
+            html = self.fix_relative_urls(html, base_url)
         
         parsed = urlparse(url)
         safe_name = parsed.path.strip('/').replace('/', '_') or 'index'
@@ -258,13 +327,14 @@ class HTMLReconstructor:
         return filename
 
 
-def reconstruct_page_with_corrections(page_data: Dict, include_legend: bool = True) -> str:
+def reconstruct_page_with_corrections(page_data: Dict, include_legend: bool = True, fix_urls: bool = True) -> str:
     """
     Convenience function to reconstruct a page with corrections.
     
     Args:
-        page_data: Page data dict with 'html_snapshot' and 'text' fields
+        page_data: Page data dict with 'html_snapshot', 'text', and 'url' fields
         include_legend: Add correction legend to the page
+        fix_urls: Convert relative URLs to absolute for local viewing
         
     Returns:
         Reconstructed HTML with corrections
@@ -276,6 +346,14 @@ def reconstruct_page_with_corrections(page_data: Dict, include_legend: bool = Tr
     if not html:
         logging.warning(f"No HTML snapshot for {page_data.get('url', 'unknown')}")
         return ""
+    
+    # Fix URLs if requested
+    if fix_urls:
+        url = page_data.get('url', '')
+        if url:
+            parsed = urlparse(url)
+            base_url = f"{parsed.scheme}://{parsed.netloc}"
+            html = reconstructor.fix_relative_urls(html, base_url)
     
     # Get corrections
     text_data = page_data.get('text', {})

@@ -163,7 +163,7 @@ class Crawler:
             self.state.stats["depths"].setdefault(depth, 0)
             self.state.stats["depths"][depth] += 1
             
-            # Store result
+            # Store result with HTML snapshot for reconstruction
             page_result = {
                 "url": url,
                 "depth": depth,
@@ -171,6 +171,7 @@ class Crawler:
                 "response_time": round(response_time, 3),
                 "is_duplicate": is_duplicate,
                 "content_hash": content_hash,
+                "html_snapshot": html,  # Store original HTML for reconstruction
                 "metadata": metadata,
                 "text": text_data,
                 "resources": resources,

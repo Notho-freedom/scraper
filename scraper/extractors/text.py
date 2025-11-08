@@ -143,9 +143,9 @@ def extract_text(html: str, enable_nlp: bool = False, nlp_config: Dict = None,
             nlp_config = nlp_config or {}
             language = nlp_config.get('language', 'french')
             
-            # Check and correct paragraphs
-            corrector = TextCorrector(language=language)
-            checker = GrammarChecker(language=language)
+            # Use singleton instances to avoid re-initialization
+            checker = GrammarChecker.get_instance(language=language)
+            corrector = TextCorrector.get_instance(language=language)
             
             paragraphs_to_correct = result.get('paragraphs', []) or [raw_text]
             corrected_paragraphs = []

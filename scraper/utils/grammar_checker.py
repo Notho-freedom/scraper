@@ -74,7 +74,10 @@ class GrammarCheckResult:
 
 
 class GrammarChecker:
-    """Advanced grammar and spelling checker"""
+    """Advanced grammar and spelling checker with singleton pattern for reuse"""
+    
+    # Singleton cache for instances per language
+    _instances = {}
     
     # Error type mapping from LanguageTool categories
     ERROR_TYPE_MAP = {
@@ -91,9 +94,23 @@ class GrammarChecker:
         'compounding': 'typography'
     }
     
+    @classmethod
+    def get_instance(cls, language: str = 'fr') -> 'GrammarChecker':
+        """Get or create singleton instance for language."""
+        if language not in cls._instances:
+            cls._instances[language] = cls(language)
+        return cls._instances[language]
+    
+    @classmethod
+    def clear_instances(cls):
+        """Clear all cached instances and close LanguageTool connections."""
+        for instance in cls._instances.values():
+            instance.close()
+        cls._instances.clear()
+    
     def __init__(self, language: str = 'fr'):
         """
-        Initialize grammar checker.
+        Initialize grammar checker. Use get_instance() for singleton pattern.
         
         Args:
             language: Language code ('fr', 'en', etc.)
@@ -123,6 +140,16 @@ class GrammarChecker:
             except Exception as e:
                 logging.warning(f"Could not initialize SpellChecker: {e}")
                 self.spell_checker = None
+    
+    def close(self):
+        """Close LanguageTool connection and free resources."""
+        if self.tool:
+            try:
+                self.tool.close()
+                logging.debug(f"LanguageTool closed for language: {self.language}")
+            except Exception as e:
+                logging.warning(f"Error closing LanguageTool: {e}")
+            self.tool = None
     
     def check_text(self, text: str, max_errors: int = 100) -> GrammarCheckResult:
         """

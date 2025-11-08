@@ -8,6 +8,7 @@ import argparse
 import sys
 import os
 import time
+import logging
 from colorama import Fore, Style, init
 from tqdm import tqdm
 
@@ -164,6 +165,16 @@ async def main():
                 
                 # Cleanup Playwright resources
                 await cleanup_fetcher()
+                
+                # Cleanup NLP singleton instances to free memory
+                from scraper.utils.grammar_checker import GrammarChecker
+                from scraper.utils.text_corrector import TextCorrector
+                from scraper.utils.nlp_processor import NLPProcessor
+                
+                GrammarChecker.clear_instances()
+                TextCorrector.clear_instances()
+                NLPProcessor.clear_instances()
+                logging.info("NLP singleton instances cleared")
     
     # Generate report
     generate_report(state, config)
@@ -188,31 +199,53 @@ async def main():
     
     # Generate corrected HTML and PDF if requested
     if config.generate_corrected_html or config.generate_pdf_report:
-        print(f"\n{Fore.YELLOW}📝 Génération des pages corrigées...{Style.RESET_ALL}")
+        print(f"\n{Fore.YELLOW}📝 Reconstruction des pages avec corrections...{Style.RESET_ALL}")
         
-        from scraper.exporters import generate_corrected_html, generate_pdf_report
+        from scraper.exporters import reconstruct_page_with_corrections, generate_pdf_report
         
-        html_pages = []
+        reconstructed_pages = []
+        snapshot_files = []
+        
         for page in state.results:
-            html_content = generate_corrected_html(page, include_annotations=True)
-            html_pages.append(html_content)
+            # Use new HTML reconstruction method (clone + inject corrections)
+            reconstructed_html = reconstruct_page_with_corrections(page, include_legend=True)
             
-            # Save individual HTML if requested
-            if config.generate_corrected_html:
-                from urllib.parse import urlparse
-                parsed = urlparse(page['url'])
-                safe_name = parsed.path.strip('/').replace('/', '_') or 'index'
-                html_filename = f"{config.output_dir}/corrected_{safe_name}.html"
-                with open(html_filename, 'w', encoding='utf-8') as f:
-                    f.write(html_content)
+            if reconstructed_html:
+                reconstructed_pages.append(reconstructed_html)
+                
+                # Save individual reconstructed HTML if requested
+                if config.generate_corrected_html:
+                    from urllib.parse import urlparse
+                    from scraper.exporters import HTMLReconstructor
+                    
+                    reconstructor = HTMLReconstructor()
+                    
+                    # Save original snapshot (v1)
+                    original_file = reconstructor.save_snapshot(
+                        page.get('html_snapshot', ''),
+                        page['url'],
+                        config.output_dir,
+                        version='v1_original'
+                    )
+                    
+                    # Save corrected version (v2)
+                    corrected_file = reconstructor.save_snapshot(
+                        reconstructed_html,
+                        page['url'],
+                        config.output_dir,
+                        version='v2_corrected'
+                    )
+                    
+                    snapshot_files.extend([original_file, corrected_file])
         
         if config.generate_corrected_html:
-            print(f"  ✓ HTML corrigés: {Fore.GREEN}{len(html_pages)} pages{Style.RESET_ALL}")
+            print(f"  ✓ Pages reconstituées: {Fore.GREEN}{len(reconstructed_pages)} pages{Style.RESET_ALL}")
+            print(f"  ✓ Snapshots sauvegardées: {Fore.GREEN}{len(snapshot_files)} fichiers{Style.RESET_ALL}")
         
-        # Generate PDF report
-        if config.generate_pdf_report and html_pages:
+        # Generate PDF report from reconstructed pages
+        if config.generate_pdf_report and reconstructed_pages:
             try:
-                pdf_path = generate_pdf_report(state.results, html_pages, output_dir=config.output_dir)
+                pdf_path = generate_pdf_report(state.results, reconstructed_pages, output_dir=config.output_dir)
                 print(f"  ✓ Rapport PDF: {Fore.GREEN}{pdf_path}{Style.RESET_ALL}")
             except Exception as e:
                 print(f"  {Fore.RED}✗ Erreur PDF: {e}{Style.RESET_ALL}")

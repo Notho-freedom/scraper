@@ -54,14 +54,30 @@ class CorrectionResult:
 
 
 class TextCorrector:
-    """Automatic text correction engine"""
+    """Automatic text correction engine with singleton pattern"""
+    
+    # Singleton cache for instances per language
+    _instances = {}
     
     # Confidence thresholds for auto-correction
     AUTO_CORRECT_THRESHOLD = 0.7  # Only auto-correct if confidence >= 70%
     
+    @classmethod
+    def get_instance(cls, language: str = 'french', auto_correct: bool = True) -> 'TextCorrector':
+        """Get or create singleton instance for language."""
+        cache_key = f"{language}_{auto_correct}"
+        if cache_key not in cls._instances:
+            cls._instances[cache_key] = cls(language, auto_correct)
+        return cls._instances[cache_key]
+    
+    @classmethod
+    def clear_instances(cls):
+        """Clear all cached instances."""
+        cls._instances.clear()
+    
     def __init__(self, language: str = 'french', auto_correct: bool = True):
         """
-        Initialize text corrector.
+        Initialize text corrector. Use get_instance() for singleton pattern.
         
         Args:
             language: Language code
@@ -69,7 +85,8 @@ class TextCorrector:
         """
         self.language = language
         self.auto_correct = auto_correct
-        self.checker = GrammarChecker(language=language)
+        # Use singleton GrammarChecker
+        self.checker = GrammarChecker.get_instance(language=language)
     
     def correct_text(self, text: str, aggressive: bool = False) -> CorrectionResult:
         """

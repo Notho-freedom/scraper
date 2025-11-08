@@ -51,11 +51,27 @@ class NLPResult:
 
 
 class NLPProcessor:
-    """Advanced NLP processor with NLTK and spaCy support"""
+    """Advanced NLP processor with NLTK and spaCy support, with singleton pattern"""
+    
+    # Singleton cache for instances per language
+    _instances = {}
+    
+    @classmethod
+    def get_instance(cls, language: str = 'french', use_spacy: bool = True) -> 'NLPProcessor':
+        """Get or create singleton instance for language."""
+        cache_key = f"{language}_{use_spacy}"
+        if cache_key not in cls._instances:
+            cls._instances[cache_key] = cls(language, use_spacy)
+        return cls._instances[cache_key]
+    
+    @classmethod
+    def clear_instances(cls):
+        """Clear all cached instances."""
+        cls._instances.clear()
     
     def __init__(self, language: str = 'french', use_spacy: bool = True):
         """
-        Initialize NLP processor.
+        Initialize NLP processor. Use get_instance() for singleton pattern.
         
         Args:
             language: Target language ('french', 'english')
@@ -388,7 +404,8 @@ def process_text_with_nlp(text: str, language: str = 'french', use_spacy: bool =
     Returns:
         Dictionary with processed data
     """
-    processor = NLPProcessor(language=language, use_spacy=use_spacy)
+    # Use singleton instance to avoid reloading spaCy model
+    processor = NLPProcessor.get_instance(language=language, use_spacy=use_spacy)
     result = processor.process(text)
     
     return {

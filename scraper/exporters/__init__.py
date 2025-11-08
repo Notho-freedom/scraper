@@ -6,6 +6,7 @@ from .sqlite_exporter import export_sqlite
 from .markdown_exporter import export_markdown
 from .html_generator import CorrectedHTMLGenerator, generate_corrected_html
 from .pdf_generator import PDFGenerator, generate_pdf_report
+from .html_reconstructor import HTMLReconstructor, reconstruct_page_with_corrections
 
 __all__ = [
     'export_json', 
@@ -15,5 +16,7 @@ __all__ = [
     'CorrectedHTMLGenerator',
     'generate_corrected_html',
     'PDFGenerator',
-    'generate_pdf_report'
+    'generate_pdf_report',
+    'HTMLReconstructor',
+    'reconstruct_page_with_corrections'
 ]
